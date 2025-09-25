@@ -1,256 +1,34 @@
-def create_accuracy_assessment_prompt(source_code, business_requirements="", technical_requirements=""):
-    """Create prompt for generating detailed program documentation from source code with diagrams"""
-    return f"""
-**PROGRAM DOCUMENTATION CREATION TASK**
-
-You are an expert program analyst and technical writer.  
-Your task is to analyze the given source code and generate **detailed, complete, and structured documentation**, including **Mermaid diagrams** for architecture and program flow.
-
-⚠️ **Important Instructions:**
-- Do NOT generate one-liner or minimal documentation. Each section must include explanations, context, and relevant details.
-- Include **diagrams in proper Mermaid syntax**. Do NOT wrap the diagram inside additional quotes or code blocks in the output—just use the standard Markdown triple backtick syntax with 'mermaid'.
-- Ensure diagrams are **readable, not condensed into a single line**, and clearly show relationships, components, and program flow.
-- Write for architects, developers, analysts, and new team members.
-- Provide detailed explanations alongside diagrams.
-
-**SOURCE CODE:**
-{source_code}
-
-**BUSINESS REQUIREMENTS (if any):**
-{business_requirements}
-
-**TECHNICAL REQUIREMENTS (if any):**
-{technical_requirements}
-
-**DOCUMENTATION STRUCTURE (MANDATORY):**
-
-1. **Introduction**
-   - Purpose of the Document (explain clearly why this program exists and its objectives)
-   - Program Overview (business context, role in system; provide detailed explanations)
-
-2. **Scope and Assumptions**
-   - Scope (what the program includes/excludes; explain the boundaries and limitations)
-   - Assumptions (explain any preconditions, dependencies, or expected environment)
-
-3. **System Architecture**
-   - High-Level Design (components, modules, interactions)
-       - Include a **Mermaid diagram** showing key components, modules, and their interactions.
-       - Ensure each component is clearly labeled and relationships are easy to understand.
-       - Example Mermaid format:
-       ```mermaid
-       graph TD
-           A[Input Files] --> B[Processing Module]
-           B --> C[Statistics Module]
-           C --> D[Output Files]
-       ```
-       - Provide a textual explanation of the diagram.
-
-4. **Functional Description**
-   - Business Requirements (mapped to program functionality, detailed explanation)
-   - Main Processes (step-by-step breakdown of functionality with explanations)
-   - Modules and Subroutines (list of modules/classes/functions with their detailed purposes)
-   - User Interfaces (screens, APIs, endpoints, if applicable; explain each)
-
-5. **Program Logic and Flow**
-   - Control Flow (execution path)
-       - Include a **Mermaid flowchart** representing the program’s execution flow.
-       - Each step should be on a separate line and labeled clearly.
-       - Example Mermaid format:
-       ```mermaid
-       flowchart TD
-           Start --> Init[Initialization]
-           Init --> ReadAudit[Read Audit File]
-           ReadAudit --> ProcessDIN[Process DIN File]
-           ProcessDIN --> UpdateStats[Update Statistics]
-           UpdateStats --> End[Program Termination]
-       ```
-       - Provide detailed description of each step in the flow.
-
-6. **Input and Output Specifications**
-   - Inputs (formats, sources, parameters, examples; explain each field)
-   - Outputs (generated files, responses, DB updates with layouts/examples; explain each field)
-
-7. **Summary**
-   - High-level overview of purpose, scope, key functionality, and recommendations
-   - Include any suggestions for improvements or optimizations
-
-**GUIDELINES:**
-- Make the document self-contained and highly explanatory.
-- Use examples, pseudocode, and **Mermaid diagrams** wherever applicable.
-- Ensure all diagrams are properly formatted and readable.
-- Each section should provide sufficient detail for a new team member to understand the program fully.
-"""
-
-def format_assessment_as_markdown(assessment_data):
-    """Format the program documentation (handles nested JSON)"""
-
-    intro = assessment_data.get("Introduction", {})
-    scope = assessment_data.get("Scope and Assumptions", {})
-    arch = assessment_data.get("System Architecture", {})
-    func = assessment_data.get("Functional Description", {})
-    logic = assessment_data.get("Program Logic and Flow", {})
-    io_specs = assessment_data.get("Input and Output Specifications", {})
-    summary = assessment_data.get("Summary", {})
-
-    # Handle lists like "Main Processes"
-    main_processes = func.get("Main Processes", [])
-    if isinstance(main_processes, list):
-        main_processes_md = "\n".join([f"- {p}" for p in main_processes])
-    else:
-        main_processes_md = main_processes or "Not provided"
-
-    # Handle dict like "Modules and Subroutines"
-    modules = func.get("Modules and Subroutines", {})
-    if isinstance(modules, dict):
-        modules_md = "\n".join([f"- **{k}**: {v}" for k, v in modules.items()])
-    else:
-        modules_md = modules or "Not provided"
-
-    return f"""# Program Documentation
-
-## 1. Introduction
-### Purpose of the Document
-{intro.get("Purpose of the Document", "Not provided")}
-
-### Program Overview
-{intro.get("Program Overview", "Not provided")}
-
----
-
-## 2. Scope and Assumptions
-### Scope
-{scope.get("Scope", "Not provided")}
-
-### Assumptions
-{scope.get("Assumptions", "None")}
-
----
-
-## 3. System Architecture
-### High-Level Design
-{arch.get("High-Level Design", "Not provided")}
-
-### Environment and Platform Details
-{arch.get("Environment and Platform Details", "Not provided")}
-
-### Dependencies
-{arch.get("Dependencies", "Not provided")}
-
-### Data Sources and Storage
-{arch.get("Data Sources and Storage", "Not provided")}
-
----
-
-## 4. Functional Description
-### Business Requirements
-{func.get("Business Requirements", "Not provided")}
-
-### Main Processes
-{main_processes_md}
-
-### Modules and Subroutines
-{modules_md}
-
-### User Interfaces
-{func.get("User Interfaces", "Not applicable")}
-
----
-
-## 5. Program Logic and Flow
-### Control Flow
-{logic.get("Control Flow", "Not provided")}
-
-### Rules, Logic, Validations
-{logic.get("Rules, Logic, Validations", "Not provided")}
-
-### Data Transformations
-{logic.get("Data Transformations", "Not provided")}
-
----
-
-## 6. Input and Output Specifications
-### Inputs
-{io_specs.get("Inputs", "Not provided")}
-
-### Outputs
-{io_specs.get("Outputs", "Not provided")}
-
----
-
-## 7. Summary
-{summary.get("High-level Recap", "No summary available")}
-
----
-*Generated on {time.strftime('%Y-%m-%d %H:%M:%S')}*
-"""
-
-
-
-def save_accuracy_assessment(project_id, assessment_data, save_pdf=False):
-    """
-    Save program documentation in JSON, Markdown, and Word formats (optional PDF).
-
-    :param project_id: Project identifier for output folder
-    :param assessment_data: Dict containing program documentation
-    :param save_pdf: If True, convert Word to PDF using docx2pdf
-    :return: paths of saved files
-    """
-    try:
-        output_dir_path = os.path.join("output", "converted", project_id)
-        os.makedirs(output_dir_path, exist_ok=True)
-
-        # Save JSON version
-        json_path = os.path.join(output_dir_path, "program_documentation.json")
-        with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(assessment_data, f, indent=2, ensure_ascii=False)
-
-        # Save Markdown version
-        md_path = os.path.join(output_dir_path, "Program_Documentation.md")
-        md_content = format_assessment_as_markdown(assessment_data)
-        with open(md_path, "w", encoding="utf-8") as f:
-            f.write(md_content)
-
-        # Save Word version
-        word_path = os.path.join(output_dir_path, "Program_Documentation.docx")
-        doc = Document()
-        doc.add_heading("Program Documentation", 0)
-
-        # Add sections from assessment_data
-        for section_title, section_content in assessment_data.items():
-            doc.add_heading(section_title, level=1)
-            if isinstance(section_content, dict):
-                for k, v in section_content.items():
-                    if isinstance(v, str):
-                        doc.add_paragraph(f"**{k}:** {v}")
-                    elif isinstance(v, list):
-                        for item in v:
-                            doc.add_paragraph(f"- {item}")
-                    elif isinstance(v, dict):
-                        # Nested dictionary
-                        for nk, nv in v.items():
-                            doc.add_paragraph(f"**{nk}:** {nv}")
-            else:
-                doc.add_paragraph(str(section_content))
-
-        doc.save(word_path)
-        logger.info(f"Word documentation saved to: {word_path}")
-
-        # Optionally convert Word to PDF
-        pdf_path = None
-        if save_pdf:
-            try:
-                from docx2pdf import convert
-                pdf_path = word_path.replace(".docx", ".pdf")
-                convert(word_path, pdf_path)
-                logger.info(f"PDF documentation saved to: {pdf_path}")
-            except ImportError:
-                logger.warning("docx2pdf not installed. PDF not generated.")
-            except Exception as e:
-                logger.error(f"Error generating PDF: {str(e)}")
-
-        logger.info(f"Program documentation saved successfully")
-        return json_path, md_path, word_path, pdf_path
-
-    except Exception as e:
-        logger.error(f"Error saving documentation: {str(e)}")
-        return None, None, None, None
+{
+  "Introduction": {
+    "Purpose of the Document": "",
+    "Program Overview": ""
+  },
+  "Scope and Assumptions": {
+    "Scope": "",
+    "Assumptions": ""
+  },
+  "System Architecture": {
+    "High-Level Design": "",
+    "Architecture Diagram": "```mermaid\n...\n```",
+    "Diagram Explanation": ""
+  },
+  "Functional Description": {
+    "Business Requirements": "",
+    "Main Processes": "",
+    "Modules and Subroutines": "",
+    "User Interfaces": ""
+  },
+  "Program Logic and Flow": {
+    "Control Flow Description": "",
+    "Flowchart Diagram": "```mermaid\n...\n```",
+    "Diagram Explanation": ""
+  },
+  "Input and Output Specifications": {
+    "Inputs": "",
+    "Outputs": ""
+  },
+  "Summary": {
+    "Overview": "",
+    "Recommendations": ""
+  }
+}
